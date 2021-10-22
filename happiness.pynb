@@ -1,1 +1,243 @@
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import random as rd
+import seaborn as sns
+import statistics as st
+import statsmodels.api as sm
+import tensorflow as tf
+
+from scipy.stats import skew
+
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.metrics import classification_report, mean_squared_error, mean_absolute_error, r2_score
+from sklearn.model_selection import KFold, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import normalize
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVR, SVR
+
+sns.set()
+mpl.style.use('classic')
+
+
+class Happiness_Index():
+    
+    country = ''
+    file_data = ''
+    file_data_preprocessed = ''
+    file_name = ''
+    iso_alpha2 = ''
+    iso_alpha3 = ''
+    iso_numeric = ''
+    iso2_alpha2 = ''
+    region = ''
+    score = ''    
+    year = ''
+    
+    region_countries = {}
+
+    def get_by_country_alpha2(self, filter_country):
+        
+        return self.file_data[(self.file_data['ISO_3166-1_Alpha2'] == filter_country)]
+    
+    def get_by_country_alpha3(self, filter_country):
+        
+        return self.file_data[(self.file_data['ISO_3166-1_Alpha3'] == filter_country)]
+    
+    def get_by_country_numeric(self, filter_country):
+        
+        return self.file_data[(self.file_data['ISO_3166-1_Numeric'] == filter_country)]
+    
+    def get_by_country_iso2(self, filter_country):
+        
+        return self.file_data[(self.file_data['ISO_3166-2'] == filter_country)]    
+    
+    def get_by_region(self, filter_region):
+        
+        return self.file_data[(self.file_data['Region'] == filter_region)]
+    
+    def get_by_year(self, filter_year):
+        
+        return self.file_data[(self.file_data['Year'] == filter_year)]
+    
+    def load_file(self):
+        
+        self.file_data = pd.read_csv(self.file_name)
+        
+        self.year = self.file_data['Year']
+        self.iso_alpha2 = self.file_data['ISO_3166-1_Alpha2']
+        self.iso_alpha3 = self.file_data['ISO_3166-1_Alpha3']
+        self.iso_numeric = self.file_data['ISO_3166-1_Numeric']
+        self.iso2_alpha2 = self.file_data['ISO_3166-2']
+        self.country = self.file_data['Country']
+        self.region = self.file_data['Region']
+        self.score = self.file_data['Score']
+        
+        for region in self.region.unique():
+    
+            countries = self.get_by_region(region)    
+            country_names = countries['Country'].unique()    
+            self.region_countries[region] = country_names
+            
+        self.file_data.info()    
+    
+    def normalize_data(self):
+        
+        features_to_normalize = happiness_index.file_data[['Score']]
+
+        normalized_features = normalize(features_to_normalize)
+
+        normalized_features_df = pd.DataFrame(normalized_features, columns = ['Score_Nml'])
+
+        happiness_index.file_data['Score_Nml'] = normalized_features_df['Score_Nml']
+
+    def standardize_data(self):
+        
+        features_to_scale = happiness_index.file_data[['Score']]
+
+        scaler = StandardScaler()
+        scaler.fit(features_to_scale)
+        scaled_features = scaler.transform(features_to_scale)
+
+        scaled_features_df = pd.DataFrame(scaled_features, columns = ['Score_Std'])
+
+        happiness_index.file_data['Score_Std'] = scaled_features_df['Score_Std']
+        
+    def __init__(self):
+        
+        pass
+
+happiness_index = Happiness_Index()
+happiness_index.file_name = '../input/happiness-index-dataset/Happiness_Index_Master.csv'
+happiness_index.load_file()
+
+class Health_Care(Happiness_Index):
+    
+    Spend_GDP = ''
+    Spend_Out_Of_Pocket = ''
+    Spend_Per_Capita = ''
+    Spend_Per_Capita_PPP = ''
+    Spend_Public = ''
+    Nurse_per_1000 = ''
+    Physicians_per_1000 = ''
+    
+    Optimal_Features = []
+    Optimal_Happiness = 0
+    
+    def load_file(self):
+        
+        self.file_data = pd.read_csv(self.file_name)
+        
+        self.year = 2016
+        self.iso_alpha2 = self.file_data['ISO_3166-1_Alpha2']
+        self.iso_alpha3 = self.file_data['ISO_3166-1_Alpha3']
+        self.iso_numeric = self.file_data['ISO_3166-1_Numeric']
+        self.iso2_alpha2 = self.file_data['ISO_3166-2']
+        self.country = self.file_data['Country']
+        self.region = self.file_data['Region']
+        self.score = self.file_data['Score']
+        self.Spend_GDP = self.file_data['Spend_GDP']
+        self.Spend_Out_Of_Pocket = self.file_data['Spend_Out_Of_Pocket']
+        self.Spend_Per_Capita = self.file_data['Spend_Per_Capita']
+        self.Spend_Per_Capita_PPP = self.file_data['Spend_Per_Capita_PPP']
+        self.Spend_Public = self.file_data['Spend_Public']
+        self.Nurse_per_1000 = self.file_data['Nurse_per_1000']
+        self.Physicians_per_1000 = self.file_data['Physicians_per_1000']
+        
+        
+        for region in self.region.unique():
+    
+            countries = self.get_by_region(region)    
+            country_names = countries['Country'].unique()    
+            self.region_countries[region] = country_names
+            
+        self.file_data.info() 
+    
+    def run_algorithm(self, \
+                      algorithm, \
+                      predictive_features_train, \
+                      predictive_features_test, \
+                      targets_train, \
+                      targets_test, \
+                      algorithm_description):
+
+        predictive_model = algorithm
+        predictive_model.fit(predictive_features_train, targets_train)        
+        
+        print(algorithm_description, 'Correlation: ', predictive_model.score(predictive_features_test, targets_test))
+        
+        for count in range(1, 100000):
+            
+            hypothetical_features = np.array([[rd.uniform(min(predictive_features_train[0]), max(predictive_features_train[0])), \
+                                             rd.uniform(min(predictive_features_train[1]), max(predictive_features_train[1])), \
+                                             rd.uniform(min(predictive_features_train[2]), max(predictive_features_train[2])), \
+                                             rd.uniform(min(predictive_features_train[3]), max(predictive_features_train[3])), \
+                                             rd.uniform(min(predictive_features_train[4]), max(predictive_features_train[4])), \
+                                             rd.uniform(min(predictive_features_train[5]), max(predictive_features_train[5])), \
+                                             rd.uniform(min(predictive_features_train[6]), max(predictive_features_train[6]))]])
+            
+            happiness_score = predictive_model.predict(hypothetical_features)
+            
+            if happiness_score > self.Optimal_Happiness:
+                
+                self.Optimal_Features = hypothetical_features
+                self.Optimal_Happiness = happiness_score
+                
+        print(self.Optimal_Features)
+        print(self.Optimal_Happiness)
+    
+    def regression_models(self):
+
+        targets = self.file_data.loc[:, 'Score']
+        predictive_features = self.file_data.loc[:,\
+        ['Spend_GDP', 'Spend_Out_Of_Pocket', 'Spend_Per_Capita', 'Spend_Per_Capita_PPP', 'Spend_Public', 'Nurse_per_1000', 'Physicians_per_1000']]
+
+        predictive_features_train, \
+        predictive_features_test, \
+        targets_train, \
+        targets_test = train_test_split(predictive_features, \
+                                        targets, test_size = 0.2, \
+                                        random_state = 42)
+
+        targets_train = np.ravel(targets_train)
+
+        scaler = StandardScaler()
+
+        scaler.fit(predictive_features_train)
+        predictive_features_train_scaled = scaler.transform(predictive_features_train)
+        predictive_features_test_scaled = scaler.transform(predictive_features_test)
+
+        self.run_algorithm(LinearRegression(), \
+                      predictive_features_train_scaled, \
+                      predictive_features_test_scaled, \
+                      targets_train, \
+                      targets_test, \
+                      'Linear Regression')
+        
+        self.run_algorithm(Ridge(), \
+                      predictive_features_train_scaled, \
+                      predictive_features_test_scaled, \
+                      targets_train, \
+                      targets_test, \
+                      'Ridge')
+        
+        self.run_algorithm(SVR(), \
+                      predictive_features_train_scaled, \
+                      predictive_features_test_scaled, \
+                      targets_train, \
+                      targets_test, \
+                      'Suport Vector Regression')
+    
+    
+    def __init__(self):
+        
+        pass
+    
+health_care = Health_Care()
+health_care.file_name = '../input/health-care/Health_Care.csv'
+health_care.load_file()
+
 
