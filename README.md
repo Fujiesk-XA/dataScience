@@ -1,2 +1,2 @@
 # dataScience
-From Group Project, Variation exist for crime and living standards
+From Group Project, Data Science Certificate
